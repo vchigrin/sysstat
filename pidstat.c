@@ -474,6 +474,62 @@ int read_proc_pid_sched(unsigned int pid, struct pid_stats *pst,
 }
 
 /*
+ ***************************************************************************
+ * Read stats from /proc/#[/task/##]/sched.
+ *
+ * IN:
+ * @pid		Process whose stats are to be read.
+ * @pst		Pointer on structure where stats will be saved.
+ * @tgid	If != 0, thread whose stats are to be read.
+ *
+ * OUT:
+ * @pst		Pointer on structure where stats have been saved.
+ * @thread_nr	Number of threads of the process.
+ *
+ * RETURNS:
+ * 0 if stats have been successfully read, and 1 otherwise.
+ ***************************************************************************
+ */
+int read_proc_pid_advanced_sched(unsigned int pid, struct pid_stats *pst,
+		       unsigned int *thread_nr, unsigned int tgid)
+{
+	int fields_filled = 0;
+	char* p_colon = 0;
+	char filename[128];
+	FILE* fp = 0;
+	static char line[1024 + 1];
+	static const char nr_migrations[] = "se.nr_migrations";
+	// Length without terminating null character.
+	static const int nr_migrations_len = sizeof(nr_migrations) - 1;
+
+	if (tgid) {
+		sprintf(filename, TASK_ADVANCED_SCHED, tgid, pid);
+	}
+	else {
+		sprintf(filename, PID_ADVANCED_SCHED, pid);
+	}
+
+	if ((fp = fopen(filename, "r")) == NULL)
+		/* No such process */
+		return 1;
+
+	while (fgets(line, sizeof(line), fp) != NULL) {
+		if (!strncmp(line, nr_migrations, nr_migrations_len) &&
+		    (p_colon = strchr(line + nr_migrations_len + 1, ':'))) {
+			sscanf(p_colon + 1, "%llu", &pst->migrations_count);
+			fields_filled++;
+		}
+	}
+
+	fclose(fp);
+	pst->pid = pid;
+	pst->tgid = tgid;
+
+	if (fields_filled == 1)
+		return 0;
+	return 1;
+}
+/*
  *****************************************************************************
  * Read stats from /proc/#[/task/##]/status.
  *
@@ -795,6 +851,7 @@ int read_pid_stats(unsigned int pid, struct pid_stats *pst,
 	 * the schedstat files shouldn't make pidstat stop.
 	 */
 	read_proc_pid_sched(pid, pst, thread_nr, tgid);
+	read_proc_pid_advanced_sched(pid, pst, thread_nr, tgid);
 
 	if (DISPLAY_CMDLINE(pidflag)) {
 		if (read_proc_pid_cmdline(pid, pst, tgid))
@@ -1236,7 +1293,8 @@ int get_pid_to_display(int prev, int curr, int p, unsigned int activity,
 
 			if (DISPLAY_CTXSW(activity) && (!isActive)) {
 				if (((*pstc)->nvcsw  != (*pstp)->nvcsw) ||
-				    ((*pstc)->nivcsw != (*pstp)->nivcsw)) {
+				    ((*pstc)->nivcsw != (*pstp)->nivcsw) ||
+				    ((*pstc)->migrations_count != (*pstp)->migrations_count)) {
 					isActive = TRUE;
 				}
 			}
@@ -1437,7 +1495,7 @@ int write_pid_task_all_stats(int prev, int curr, int dis,
 			printf("   kB_rd/s   kB_wr/s kB_ccwr/s iodelay");
 		}
 		if (DISPLAY_CTXSW(actflag)) {
-			printf("   cswch/s nvcswch/s");
+			printf("   cswch/s nvcswch/s migration/s");
 		}
 		if (DISPLAY_KTAB(actflag)) {
 			printf(" threads   fd-nr");
@@ -1526,6 +1584,8 @@ int write_pid_task_all_stats(int prev, int curr, int dis,
 			cprintf_f(NO_UNIT, 2, 9, 2,
 				  S_VALUE(pstp->nvcsw, pstc->nvcsw, itv),
 				  S_VALUE(pstp->nivcsw, pstc->nivcsw, itv));
+			cprintf_f(NO_UNIT, 1, 11, 2,
+				  S_VALUE(pstp->migrations_count, pstc->migrations_count, itv));
 		}
 
 		if (DISPLAY_KTAB(actflag)) {
@@ -2127,7 +2187,7 @@ int write_pid_ctxswitch_stats(int prev, int curr, int dis,
 
 	if (dis) {
 		PRINT_ID_HDR(prev_string, pidflag);
-		printf("   cswch/s nvcswch/s  Command\n");
+		printf("   cswch/s nvcswch/s migration/s  Command\n");
 	}
 
 	for (p = 0; p < pid_nr; p++) {
@@ -2140,6 +2200,8 @@ int write_pid_ctxswitch_stats(int prev, int curr, int dis,
 		cprintf_f(NO_UNIT, 2, 9, 2,
 			  S_VALUE(pstp->nvcsw, pstc->nvcsw, itv),
 			  S_VALUE(pstp->nivcsw, pstc->nivcsw, itv));
+		cprintf_f(NO_UNIT, 1, 11, 2,
+			  S_VALUE(pstp->migrations_count, pstc->migrations_count, itv));
 		print_comm(pstc);
 		again = 1;
 	}
