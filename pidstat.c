@@ -519,6 +519,30 @@ int read_proc_pid_advanced_sched(unsigned int pid, struct pid_stats *pst,
 			sscanf(p_colon + 1, "%llu", &pst->migrations_count);
 			fields_filled++;
 		}
+
+		if (!strncmp(line, total_numa_faults, total_numa_faults_len) &&
+		    (p_colon = strchr(line + total_numa_faults_len + 1, ':'))) {
+			sscanf(p_colon + 1, "%lu", &pst->numa_faults_count);
+			fields_filled++;
+		}
+
+		if (!strncmp(line, numa_pages_migrated, numa_pages_migrated_len) &&
+		    (p_colon = strchr(line + numa_pages_migrated_len + 1, ':'))) {
+			sscanf(p_colon + 1, "%lu", &pst->numa_pages_migrated);
+			fields_filled++;
+		}
+
+		if (!strncmp(line, numa_preferred_nid, numa_preferred_nid_len) &&
+		    (p_colon = strchr(line + numa_preferred_nid_len + 1, ':'))) {
+			sscanf(p_colon + 1, "%d", &pst->numa_preferred_node);
+			fields_filled++;
+		}
+		if (!strncmp(line, numa_current_node, numa_current_node_len)) {
+
+		    (p_colon = strchr(line + numa_preferred_nid_len + 1, ':'))) {
+			sscanf(p_colon + 1, "%d", &pst->numa_preferred_node);
+			fields_filled++;
+		}
 	}
 
 	fclose(fp);

@@ -186,6 +186,11 @@ struct pid_stats {
 	unsigned long long vsz				__attribute__ ((packed));
 	unsigned long long rss				__attribute__ ((packed));
 	unsigned long long migrations_count		__attribute__ ((packed));
+	unsigned long      numa_faults_count		__attribute__ ((packed));
+	unsigned long      numa_pages_migrated		__attribute__ ((packed));
+	int                numa_preferred_node		__attribute__ ((packed));
+	int                numa_current_node		__attribute__ ((packed));
+	int                numa_group			__attribute__ ((packed));
 	unsigned long      nvcsw			__attribute__ ((packed));
 	unsigned long      nivcsw			__attribute__ ((packed));
 	unsigned long      stack_size			__attribute__ ((packed));
